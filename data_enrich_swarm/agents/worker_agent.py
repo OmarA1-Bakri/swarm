@@ -8,8 +8,9 @@ from config import (
     TAVILY_RATE_LIMIT,
     PERPLEXITY_RATE_LIMIT,
 )
+from api.tavily_api import tavily_search
+from api.perplexity_api import perplexity_search
 import logging
-import requests
 
 
 class WorkerAgent(Agent):
@@ -34,10 +35,8 @@ class WorkerAgent(Agent):
             column (str): The column name this agent is responsible for processing.
             model (str): The model used for processing data.
         """
-        super().__init__(name=name, swarm=swarm)
+        super().__init__(name=name, swarm=swarm, model=model)
         self.column = column
-        self.model = model
-        # Initialize rate limiters for Tavily and Perplexity APIs
         self.tavily_limiter = RateLimiter(TAVILY_RATE_LIMIT)
         self.perplexity_limiter = RateLimiter(PERPLEXITY_RATE_LIMIT)
         logging.info(f"Initialized WorkerAgent for column: {column}")
@@ -58,61 +57,44 @@ class WorkerAgent(Agent):
         results = []
         for company in chunk:
             try:
-                # Enrich data for each company
-                value = self.enrich_company(company)
-                results.append((company, value))
+                enriched_data = self.enrich_data(company)
+                results.append((company, enriched_data))
             except Exception as e:
-                logging.error(f"Error enriching data for {company}: {e}")
+                logging.error(f"Error processing company {company}: {e}")
                 results.append((company, f"Error: {str(e)}"))
         return str(results)
 
-    def enrich_company(self, company):
+    def enrich_data(self, company):
         """
-        Enriches data for a single company by querying relevant information.
+        Enriches data for a single company using Tavily and Perplexity APIs.
 
         Args:
             company (str): The name of the company to enrich data for.
 
         Returns:
-            str: A summary of the enriched data for the company.
+            str: Enriched data for the company.
         """
-        query = f"{company} {self.column}"
+        tavily_result = self.tavily_search(f"{company} {self.column}")
+        perplexity_result = self.perplexity_search(
+            f"Provide a concise summary about {company}'s {self.column}"
+        )
 
-        try:
-            # Determine which API to use based on the column
-            if self.column in [
-                "API yes/no",
-                "Core business focus",
-                "Headquaters",
-                "Currencies",
-            ]:
-                data = self.tavily_search(query)
-            else:
-                data = self.perplexity_search(query)
+        prompt = f"""
+        Based on the following information about {company}'s {self.column}:
+        
+        Tavily search result: {tavily_result}
+        
+        Perplexity summary: {perplexity_result}
+        
+        Provide a brief, factual summary focusing on the most relevant and recent information.
+        The summary should be no longer than 100 words.
+        """
 
-            # Use the swarm to process the data and generate a summary
-            response = self.swarm.run(
-                agent=self,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": f"Summarize the following information about {company} for the {self.column} category:\n\n{data}",
-                    }
-                ],
-                model=self.model,
-            )
-            summary = response.messages[-1]["content"]
-            logging.info(f"Enriched data for {company} in column {self.column}")
-            return summary
-        except Exception as e:
-            logging.error(
-                f"Error in enrich_company for {company} in column {self.column}: {e}"
-            )
-            raise
+        return self.generate_summary(prompt)
 
     def tavily_search(self, query):
         """
-        Performs a search using the Tavily API.
+        Performs a search using the Tavily API with rate limiting.
 
         Args:
             query (str): The search query.
@@ -120,22 +102,12 @@ class WorkerAgent(Agent):
         Returns:
             str: The content of the first result from the Tavily API.
         """
-        url = "https://api.tavily.com/search"
-        headers = {"Authorization": f"Bearer {TAVILY_API_KEY}"}
-        params = {"query": query, "max_results": 1}
-
         with self.tavily_limiter:
-            try:
-                response = requests.get(url, headers=headers, params=params)
-                response.raise_for_status()
-                return response.json()["results"][0]["content"]
-            except Exception as e:
-                logging.error(f"Error in Tavily search: {e}")
-                raise
+            return tavily_search(query)
 
     def perplexity_search(self, query):
         """
-        Performs a search using the Perplexity API.
+        Performs a search using the Perplexity API with rate limiting.
 
         Args:
             query (str): The search query.
@@ -143,24 +115,23 @@ class WorkerAgent(Agent):
         Returns:
             str: The content of the first message from the Perplexity API.
         """
-        url = "https://api.perplexity.ai/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-            "Content-Type": "application/json",
-        }
-        data = {
-            "model": "gpt-3.5-turbo",
-            "messages": [{"role": "user", "content": query}],
-        }
-
         with self.perplexity_limiter:
-            try:
-                response = requests.post(url, headers=headers, json=data)
-                response.raise_for_status()
-                return response.json()["choices"][0]["message"]["content"]
-            except Exception as e:
-                logging.error(f"Error in Perplexity search: {e}")
-                raise
+            return perplexity_search(query)
+
+    def generate_summary(self, prompt):
+        """
+        Generates a summary using the agent's model.
+
+        Args:
+            prompt (str): The prompt for generating the summary.
+
+        Returns:
+            str: The generated summary.
+        """
+        response = self.swarm.run(
+            agent=self, messages=[{"role": "user", "content": prompt}]
+        )
+        return response.messages[-1]["content"]
 
     def handle_error(self, error):
         """

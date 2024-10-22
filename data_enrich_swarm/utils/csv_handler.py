@@ -2,11 +2,12 @@
 
 import pandas as pd
 import logging
+from config import INPUT_CSV, OUTPUT_CSV
 
 
 def read_csv(file_path):
     """
-    Reads a CSV file into a pandas DataFrame, using 'Company Name' as the index column.
+    Reads a CSV file into a pandas DataFrame.
 
     Args:
         file_path (str): The path to the CSV file to be read.
@@ -21,26 +22,31 @@ def read_csv(file_path):
         ValueError: For any other errors encountered during reading.
     """
     try:
-        # Attempt to read the CSV file with 'Company Name' as the index column
-        return pd.read_csv(file_path, index_col="Company Name")
+        # Attempt to read the CSV file
+        df = pd.read_csv(file_path)
+
+        # Check if 'Company Name' column exists
+        if "Company Name" in df.columns:
+            # Set 'Company Name' as index if it exists
+            df.set_index("Company Name", inplace=True)
+        else:
+            logging.warning(
+                "'Company Name' column not found in the CSV. Using default index."
+            )
+
+        return df
     except FileNotFoundError:
-        # Log and raise an error if the file is not found
         logging.error(f"The file at {file_path} was not found.")
-        raise FileNotFoundError(f"The file at {file_path} was not found.")
+        raise
     except pd.errors.EmptyDataError:
-        # Log and raise an error if the file is empty
         logging.error(f"The file at {file_path} is empty.")
-        raise pd.errors.EmptyDataError(f"The file at {file_path} is empty.")
+        raise
     except pd.errors.ParserError:
-        # Log and raise an error if there is a parsing issue
         logging.error(f"There was a parsing error in the file at {file_path}.")
-        raise pd.errors.ParserError(
-            f"There was a parsing error in the file at {file_path}."
-        )
+        raise
     except ValueError as e:
-        # Log and raise any other value errors encountered
         logging.error(f"Error reading CSV file at {file_path}: {e}")
-        raise ValueError(f"Error reading CSV file at {file_path}: {e}")
+        raise
 
 
 def write_csv(data, file_path):

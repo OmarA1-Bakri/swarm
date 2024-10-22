@@ -22,18 +22,19 @@ class ManagerAgent(Agent):
         worker_model (str): Model used by worker agents for processing.
     """
 
-    def __init__(self, name, swarm, input_csv, output_csv, worker_model):
+    def __init__(self, name, swarm, model, input_csv, output_csv, worker_model):
         """
         Initializes the ManagerAgent with the given parameters.
 
         Args:
             name (str): Name of the manager agent.
             swarm (Swarm): Swarm instance for managing agents.
+            model (str): Model to be used by the manager agent.
             input_csv (str): Path to the input CSV file.
             output_csv (str): Path to the output CSV file.
             worker_model (str): Model used by worker agents for processing.
         """
-        super().__init__(name=name, swarm=swarm)
+        super().__init__(name=name, swarm=swarm, model=model)
         self.input_csv = input_csv
         self.output_csv = output_csv
         self.data = None
@@ -67,7 +68,10 @@ class ManagerAgent(Agent):
             columns = self.data.columns[1:]  # Skip the 'Company Name' column
             for column in columns:
                 worker = WorkerAgent(
-                    f"Worker_{column}", self.swarm, column, self.worker_model
+                    name=f"Worker_{column}",
+                    swarm=self.swarm,
+                    model=self.worker_model,
+                    column=column,
                 )
                 self.workers[column] = (
                     worker  # Store the worker agent in the dictionary
@@ -90,8 +94,14 @@ class ManagerAgent(Agent):
                     f"Processing chunk {i//CHUNK_SIZE + 1} of {len(companies)//CHUNK_SIZE + 1}"
                 )
                 for column, worker in self.workers.items():
-                    results = worker.process_chunk(chunk)  # Process chunk with worker
-                    self.update_data(results, column)  # Update data with results
+                    try:
+                        results = worker.process_chunk(
+                            chunk
+                        )  # Process chunk with worker
+                        self.update_data(results, column)  # Update data with results
+                    except Exception as e:
+                        logging.error(f"Error processing column {column}: {e}")
+                        self.handle_worker_failure(column)
         except Exception as e:
             logging.error(f"Error distributing work: {e}")
             raise
@@ -135,3 +145,15 @@ class ManagerAgent(Agent):
         """
         logging.error(f"Error in ManagerAgent: {error}")
         return {"error": str(error), "stage": "management"}
+
+    def handle_worker_failure(self, column):
+        """
+        Handles the case when a worker agent fails to process a column.
+
+        Args:
+            column (str): The column that failed to process.
+        """
+        logging.warning(
+            f"Worker agent for column {column} failed. Skipping this column."
+        )
+        self.data[column] = "Failed to process"

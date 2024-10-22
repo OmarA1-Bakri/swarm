@@ -1,5 +1,7 @@
 # main.py
 
+# main.py
+
 import os
 import logging
 from swarm import Swarm
@@ -11,14 +13,9 @@ from config import (
     OUTPUT_CSV,
     DEFAULT_MANAGER_MODEL,
     DEFAULT_WORKER_MODEL,
-    OPENAI_RATE_LIMIT,
 )
 from agents.manager_agent import ManagerAgent
 from utils.rate_limiter import RateLimiter
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
 
 
 def setup_logging():
@@ -37,7 +34,7 @@ def setup_logging():
     )
     # Configure the basic logging settings
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[handler],
     )
@@ -64,19 +61,25 @@ def main():
 
         logging.info("Initializing Swarm and starting data enrichment process")
 
-        # Initialize a rate limiter for the Swarm with the OpenAI rate limit
-        rate_limiter = RateLimiter(OPENAI_RATE_LIMIT)
-        # Create a Swarm instance with the default manager model and rate limiter
-        swarm = Swarm(model=DEFAULT_MANAGER_MODEL, rate_limiter=rate_limiter)
+        # Create a Swarm instance
+        swarm = Swarm()
 
         # Instantiate the ManagerAgent with the necessary parameters
         manager = ManagerAgent(
-            "ManagerAgent", swarm, INPUT_CSV, OUTPUT_CSV, DEFAULT_WORKER_MODEL
+            name="ManagerAgent",
+            swarm=swarm,
+            model=DEFAULT_MANAGER_MODEL,
+            input_csv=INPUT_CSV,
+            output_csv=OUTPUT_CSV,
+            worker_model=DEFAULT_WORKER_MODEL,
         )
         # Run the data enrichment process
-        manager.run()
-
-        logging.info("Data enrichment process completed successfully")
+        try:
+            manager.run()
+        except Exception as e:
+            logging.error(f"Error during manager execution: {e}")
+            print(f"Error during manager execution: {e}")
+            logging.info("Data enrichment process completed successfully")
 
     except ValueError as ve:
         # Log and print configuration errors

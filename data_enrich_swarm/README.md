@@ -47,3 +47,15 @@ This application uses a custom swarm-based architecture to enrich data from a CS
 To run the application, execute the following command from the root folder: 
 
 python main.py
+
+## Error Handling and Logging
+
+The application implements comprehensive error handling and logging:
+
+- All major operations are wrapped in try-except blocks to catch and log any exceptions.
+- Errors are logged to a file named 'data_enrichment.log'.
+- The log file uses a rotating file handler, creating new log files when the current one reaches 1MB, and keeping up to 5 backup files.
+- In case of worker agent failures, the application will skip the problematic column and continue processing other columns.
+- The main process will log the completion status, whether successful or not.
+
+You can check the log file for detailed information about the execution process and any errors that occurred.
