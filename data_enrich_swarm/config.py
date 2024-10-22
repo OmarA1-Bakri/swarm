@@ -4,8 +4,8 @@ import os
 
 # API Keys
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-TAVILY_API_KEY = os.getenv("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")
-PERPLEXITY_API_KEY = os.getenv("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")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
 
 # CSV Files
 INPUT_CSV = "data/Fintechs.csv"

@@ -39,7 +39,6 @@ venv.bak/
 *.log
 
 # Project-specific files
-config.py
 Fintechs_enriched.csv
 
 # IDEs and editors
