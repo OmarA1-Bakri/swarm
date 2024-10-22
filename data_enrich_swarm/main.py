@@ -15,6 +15,10 @@ from config import (
 )
 from agents.manager_agent import ManagerAgent
 from utils.rate_limiter import RateLimiter
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 def setup_logging():
