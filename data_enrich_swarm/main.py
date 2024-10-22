@@ -20,15 +20,18 @@ from utils.rate_limiter import RateLimiter
 def setup_logging():
     """
     Configures the logging settings for the application.
-    Logs are written to 'data_enrichment.log' with INFO level and above.
+
+    This function sets up logging to write logs to 'data_enrichment.log' with a level of INFO and above.
     The log format includes the timestamp, logger name, log level, and message.
     Log files are rotated when they reach 1MB in size, keeping 5 backup files.
     """
     from logging.handlers import RotatingFileHandler
 
+    # Create a rotating file handler that writes to 'data_enrichment.log'
     handler = RotatingFileHandler(
         "data_enrichment.log", maxBytes=1_000_000, backupCount=5  # 1MB
     )
+    # Configure the basic logging settings
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -39,7 +42,8 @@ def setup_logging():
 def main():
     """
     Main function to execute the data enrichment process.
-    It sets up logging, checks for API key availability, initializes the Swarm,
+
+    This function sets up logging, checks for the availability of API keys, initializes the Swarm,
     and runs the ManagerAgent to process the data.
     """
     setup_logging()  # Initialize logging configuration
