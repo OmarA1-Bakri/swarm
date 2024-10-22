@@ -4,3 +4,4 @@ pandas
 requests
 swarm
 openai
+python-dotenv
